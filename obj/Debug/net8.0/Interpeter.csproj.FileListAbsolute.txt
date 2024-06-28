@@ -1,0 +1,14 @@
+/media/frankperez/Local Disk/Gwent/Interpeter/bin/Debug/net8.0/Interpeter
+/media/frankperez/Local Disk/Gwent/Interpeter/bin/Debug/net8.0/Interpeter.deps.json
+/media/frankperez/Local Disk/Gwent/Interpeter/bin/Debug/net8.0/Interpeter.runtimeconfig.json
+/media/frankperez/Local Disk/Gwent/Interpeter/bin/Debug/net8.0/Interpeter.dll
+/media/frankperez/Local Disk/Gwent/Interpeter/bin/Debug/net8.0/Interpeter.pdb
+/media/frankperez/Local Disk/Gwent/Interpeter/obj/Debug/net8.0/Interpeter.GeneratedMSBuildEditorConfig.editorconfig
+/media/frankperez/Local Disk/Gwent/Interpeter/obj/Debug/net8.0/Interpeter.AssemblyInfoInputs.cache
+/media/frankperez/Local Disk/Gwent/Interpeter/obj/Debug/net8.0/Interpeter.AssemblyInfo.cs
+/media/frankperez/Local Disk/Gwent/Interpeter/obj/Debug/net8.0/Interpeter.csproj.CoreCompileInputs.cache
+/media/frankperez/Local Disk/Gwent/Interpeter/obj/Debug/net8.0/Interpeter.dll
+/media/frankperez/Local Disk/Gwent/Interpeter/obj/Debug/net8.0/refint/Interpeter.dll
+/media/frankperez/Local Disk/Gwent/Interpeter/obj/Debug/net8.0/Interpeter.pdb
+/media/frankperez/Local Disk/Gwent/Interpeter/obj/Debug/net8.0/Interpeter.genruntimeconfig.cache
+/media/frankperez/Local Disk/Gwent/Interpeter/obj/Debug/net8.0/ref/Interpeter.dll
