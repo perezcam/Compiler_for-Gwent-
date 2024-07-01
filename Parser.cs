@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Dynamic;
 using System.Linq.Expressions;
@@ -23,16 +24,32 @@ public class CardNode : ASTNode
     public string ?Faction{get;set;}
     public ExpressionNode ?Power{get;set;}
     public List<string> Range = new List<string>();
-    //Agregar el OnActivation block
-    //crear el nodo On Activation Block
+    public List<ActivationBlockNode> OnActivationBlock = new List<ActivationBlockNode>();
 }
 public class ActivationBlockNode: ASTNode
 {
-    //preparar el activation block nmode
+    public EffectBuilderNode ?effect {get;set;}
+    public SelectorNode ?selector {get;set;} 
+    public ActivationBlockNode ?postAction {get;set;}
+}
+public class EffectBuilderNode:StatementNode
+{
+    public string ?Name{get;set;}
+    public List<StatementNode> assingments{get;set;} = new List<StatementNode>();
+}
+public class SelectorNode:StatementNode
+{
+    public IdentifierNode ?source{get;set;}
+    public ExpressionNode ?single{get;set;}
+    public PredicateFunction ?predicate{get;set;} 
+}
+public class PredicateFunction: ExpressionNode
+{
+    public IdentifierNode ?target {get;set;}
+    public ExpressionNode ?filter {get;set;}
 }
 public class ActionBlockNode : ASTNode
 {
-    //analizar si necesito recibir los parametrps del bloque Accion y en cAO DE NECESITARLOS CREAR LAETRUCTURA
     public List<StatementNode> Statements { get; } = new List<StatementNode>();
     public AssignmentNode target = new AssignmentNode();
     public AssignmentNode context = new AssignmentNode();
@@ -56,7 +73,7 @@ public class AssignmentNode : StatementNode
     public ExpressionNode ?Value { get; set;}
 }
 public abstract class ExpressionNode : ASTNode {}
-public class ExpressionStatementNode : StatementNode
+public class AccesExpressionNode : StatementNode
 {
     public ExpressionNode ?Expression { get; set; }
 }
@@ -124,19 +141,31 @@ public class BlockNode : ASTNode
 public class PropertyAccessNode : ExpressionNode
 {
     public ExpressionNode ?Target { get; set; }
-    public string ?PropertyName { get; set; }
+    public IdentifierNode ?PropertyName { get; set; }
+}
+public class CollectionIndexingNode : ExpressionNode
+{
+    public ExpressionNode ?Collection { get; set; }
+    public ExpressionNode ?Index { get; set; }
+
 }
 public class CompoundAssignmentNode : AssignmentNode
 {
     public ExpressionNode ?Target { get; set; }
     public TokenType Operator { get; set; }
-    public ExpressionNode ?Value { get; set; }
+    public ExpressionNode ?value { get; set; }
 }
 public class MethodCallNode : ExpressionNode
 {
     public ExpressionNode ?Target { get; set; }
-    public string ?MethodName { get; set; }
+    public IdentifierNode ?MethodName { get; set; }
     public List<ExpressionNode> ?Arguments { get; set; }
+}
+public class ConcatExpresion: ExpressionNode
+{
+    public ExpressionNode ?rigth{get;set;}
+    public ExpressionNode ?left {get;set;}
+    public bool IsComp{get;set;}
 }
 public class Parser
 {
@@ -183,7 +212,7 @@ public class Parser
             }
             else
             {
-                throw new Exception($"Recibio {CurrentToken.Type} pero esperaba effect o card");
+                throw new Exception($"Recibio {CurrentToken.Type} pero esperaba effect o card en la linea {CurrentToken.Row}");
             }
         }
         return program;
@@ -194,7 +223,7 @@ public class Parser
         Match(TokenType.Effect);
         Match(TokenType.OpenBrace);
 
-        while (CurrentToken.Type != TokenType.CloseBrace)
+        while (CurrentToken!.Type != TokenType.CloseBrace)
         {
             Token propertyToken = CurrentToken;
             switch (propertyToken.Type)
@@ -228,8 +257,7 @@ public class Parser
                     throw new Exception($"Token inesperado en las valores de Effect, se recibio {CurrentToken.Type}, en la fila {CurrentToken.Row}");
             }
         }
-        Match(TokenType.CloseBrace);
-        
+        Match(TokenType.CloseBrace); 
         return effect;
     }
     private CardNode ParseCard()
@@ -237,7 +265,7 @@ public class Parser
         CardNode card = new CardNode();
         Match(TokenType.Card);
         Match(TokenType.OpenBrace);
-        while (CurrentToken.Type != TokenType.CloseBrace)
+        while (CurrentToken!.Type != TokenType.CloseBrace)
         {
             Token propertyToken = CurrentToken;
             switch (propertyToken.Type)
@@ -246,35 +274,169 @@ public class Parser
                     Match(TokenType.Name);
                     Match(TokenType.Colon);
                     card.Name = Match(TokenType.String).Value;
+                    Match(TokenType.Comma);
                     break;
 
                 case TokenType.Type:
                     Match(TokenType.Type);
                     Match(TokenType.Colon);
                     card.Type = Match(TokenType.String).Value;
+                    Match(TokenType.Comma);
                     break;
                 
                 case TokenType.EffectKeyword:
                     Match(TokenType.EffectKeyword);
                     Match(TokenType.Colon);
                     card.Effect.Add(Match(TokenType.String).Value);
+                    Match(TokenType.Comma);
                     break;
                 case TokenType.Range:
                     Match(TokenType.Range);
                     Match(TokenType.Colon);
-                    card.Range.Add(Match(TokenType.String).Value);
+                    Match(TokenType.OpenBracket);
+                    while(CurrentToken.Type != TokenType.CloseBracket)
+                    {
+                        card.Range.Add(Match(TokenType.String).Value);
+                        if(CurrentToken.Type != TokenType.CloseBracket)
+                            Match(TokenType.Comma);
+                    }
+                    Match(TokenType.CloseBracket);
+                    Match(TokenType.Comma);
                     break;
                 case TokenType.Power:
                     Match(TokenType.Power);
                     Match(TokenType.Colon);
                     card.Power = ParseExpression();
+                    Match(TokenType.Comma);
                     break;
-                //Falta agregar aqui el OnActivation Block
+                case TokenType.Faction:
+                    Match(TokenType.Faction);
+                    Match(TokenType.Colon);
+                    card.Faction = Match(TokenType.String).Value;
+                    Match(TokenType.Comma);
+                    break;
+                case TokenType.OnActivation:
+                    Match(TokenType.OnActivation);
+                    Match(TokenType.Colon);
+                    Match(TokenType.OpenBracket);
+                    while(CurrentToken.Type != TokenType.CloseBracket)
+                    {
+                        card.OnActivationBlock.Add(ParseActivationBlock());
+                        if(CurrentToken.Type == TokenType.Comma)
+                            Match(TokenType.Comma);
+                    }
+                    Match(TokenType.CloseBracket);
+                    break;
                 default:
-                    throw new Exception("Token inesperado en las valores de Effect");
+                    throw new Exception($"Token inesperado en las valores de ParseCard en la fila {CurrentToken.Row} recibio {CurrentToken}");
             }
         }
+        Match(TokenType.CloseBrace);
         return card;
+    }
+    private ActivationBlockNode ParseActivationBlock()
+    {
+        ActivationBlockNode actionBlock = new ActivationBlockNode();
+        Match(TokenType.OpenBrace);
+        while(CurrentToken?.Type != TokenType.CloseBrace)
+        {
+            if(CurrentToken?.Type == TokenType.EffectKeyword)
+            {
+                actionBlock.effect = ParseEffectBuilderNode();
+            }
+            else if(CurrentToken?.Type == TokenType.Selector)
+            {
+                actionBlock.selector = ParseSelectorNode();
+            }
+            else if(CurrentToken?.Type == TokenType.PostAction)
+            {
+                Match(TokenType.PostAction);
+                Match(TokenType.Colon);
+                actionBlock.postAction = ParseActivationBlock();
+            }
+            else
+                throw new Exception($"Esperaba EffectKW,Selector o PostAction pero recibio {CurrentToken?.Value} en PActivationBlockNode");
+        }
+        Match(TokenType.CloseBrace);
+        return actionBlock;
+    }
+    private EffectBuilderNode ParseEffectBuilderNode()
+    {
+        EffectBuilderNode effectBuild = new EffectBuilderNode();
+        Match(TokenType.EffectKeyword);
+        Match(TokenType.Colon);
+        //Sintactic Sugar
+        if(CurrentToken?.Type == TokenType.String)
+        {
+            effectBuild.Name = Match(CurrentToken.Type).Value;
+            Match(TokenType.Comma);
+            return effectBuild;
+        }
+        Match(TokenType.OpenBrace);
+        while(CurrentToken?.Type != TokenType.CloseBrace)
+        {
+            if(CurrentToken?.Type == TokenType.Name)
+            {
+                Match(TokenType.Name);
+                Match(TokenType.Colon);
+                effectBuild!.Name = Match(CurrentToken.Type).Value;
+                Match(TokenType.Comma);
+            }
+            else
+            {
+                effectBuild.assingments.Add(ParseAssignment());
+                //No me acuerdo si aqui ya llega con la coma parseada
+            }
+        }
+        Match(TokenType.CloseBrace);
+        Match(TokenType.Comma);
+        return effectBuild!;
+    }
+    private SelectorNode ParseSelectorNode()
+    {
+        SelectorNode selector = new SelectorNode();
+        Match(TokenType.Selector);
+        Match(TokenType.Colon);
+        Match(TokenType.OpenBrace);
+        while(CurrentToken?.Type != TokenType.CloseBrace)
+        {
+            if(CurrentToken?.Type == TokenType.Source)
+            {
+                IdentifierNode source = new IdentifierNode();
+                Match(TokenType.Source);
+                Match(TokenType.Colon);
+                source.Name = Match(CurrentToken.Type).Value;
+                selector.source = source;
+                Match(TokenType.Comma);
+            }
+            else if(CurrentToken?.Type == TokenType.Single)
+            {
+                Match(TokenType.Single);
+                Match(TokenType.Colon);
+                selector.single = ParseExpression();
+                if (selector.single is not BooleanBinaryExpressionNode && selector.single is not BooleanLiteralNode)
+                    throw new Exception($"Esperaba una expresion boolena y recibio {selector.single} en ParseSelectorNode_Single"); 
+                Match(TokenType.Comma);
+            }
+            else if(CurrentToken?.Type == TokenType.Predicate)
+            {
+                IdentifierNode cardID = new IdentifierNode(); 
+                PredicateFunction predicate = new PredicateFunction();
+                Match(TokenType.Predicate);
+                Match(TokenType.Colon);
+                Match(TokenType.OpenParen);
+                cardID.Name = Match(CurrentToken!.Type).Value;
+                predicate.target = cardID;
+                Match(TokenType.CloseParen);
+                Match(TokenType.Arrow);
+                predicate.filter = ParseExpression();
+                if (predicate.filter is not BooleanBinaryExpressionNode && selector.single is not BooleanLiteralNode)
+                    throw new Exception($"Esperaba una expresion boolena y recibio {predicate.filter} en ParseSelectorNode_Predicate");
+            }
+        }
+        Match(TokenType.CloseBrace);
+        Match(TokenType.Comma);
+        return selector;
     }
     private ActionBlockNode ParseActionBlock()
     {
@@ -291,7 +453,7 @@ public class Parser
         {
             actionBlock.Statements.Add(ParseStatement());
         }
-        // Match(TokenType.CloseBrace);
+        Match(TokenType.CloseBrace);
         return actionBlock;
     }
     private StatementNode ParseStatement()
@@ -315,9 +477,10 @@ public class Parser
             ExpressionNode expr = ParseExpression();
             if (expr is MethodCallNode)
             {
-                return new ExpressionStatementNode { Expression = expr };
+                Match(TokenType.DotCom);
+                return new AccesExpressionNode { Expression = expr };
             }
-            else if ( expr is PropertyAccessNode)
+            else if ( expr is PropertyAccessNode || expr is CollectionIndexingNode)
             {
                 if (IsAssignmentOperator(CurrentToken.Type))
                 {
@@ -329,13 +492,14 @@ public class Parser
                         Operator = GetSimpleOperator(op),
                         Value = ParseExpression(),
                     };
-                    Match(TokenType.Comma);
+                    Match(TokenType.DotCom);
                     return left;
                 }
-                return new ExpressionStatementNode{ Expression = expr };
+                Match(TokenType.DotCom);
+                return new AccesExpressionNode{ Expression = expr };
             }
         }
-        throw new Exception($"Token inesperado en Parse Statement: {CurrentToken?.Type}");
+        throw new Exception($"Token inesperado en Parse Statement: {CurrentToken?.Type}recibido en la linea {CurrentToken?.Row}");
     }
 
     private ForStatementNode ParseForStatement()
@@ -370,7 +534,16 @@ public class Parser
             {
                 Match(op);
                 ExpressionNode right = ParseExpression();
-                if (op == TokenType.Equals || op == TokenType.Colon)
+                if (op == TokenType.Equals)
+                {
+                    Match(TokenType.DotCom);
+                    return new AssignmentNode
+                    {
+                        Variable = GetVariableFromExpression(left),
+                        Value = right
+                    };
+                }
+                else if(op == TokenType.Colon)
                 {
                     Match(TokenType.Comma);
                     return new AssignmentNode
@@ -391,7 +564,7 @@ public class Parser
                 }
             }
         }
-        throw new Exception("Asignacion no valida");
+        throw new Exception($"Asignacion no valida en la linea {CurrentToken?.Row} lo q recibio fue {CurrentToken}");
     }
 
     private ExpressionNode ParseExpression(int precedence = 0)
@@ -429,7 +602,7 @@ public class Parser
             case TokenType.MinusEqual: return TokenType.Minus;
             case TokenType.MultiplyEqual: return TokenType.Multiply;
             case TokenType.DivideEqual: return TokenType.Divide;
-            default: throw new Exception("Operacion Compuesta Invalida");
+            default: throw new Exception($"Operacion Compuesta Invalida en la linea {CurrentToken?.Row}");
         }
     }
 
@@ -437,11 +610,11 @@ public class Parser
     {
         if (expr is IdentifierNode idNode)
         {
-            return idNode.Name;
+            return idNode.Name!;
         }
         else if (expr is PropertyAccessNode propNode)
         {
-            return $"{GetVariableFromExpression(propNode.Target)}.{propNode.PropertyName}";
+            return $"{GetVariableFromExpression(propNode.Target!)}.{propNode.PropertyName}";
         }
         else
         {
@@ -458,16 +631,15 @@ public class Parser
     {
         return BinaryExpressionNode.Levels.ContainsKey(type);
     }
-
     private ExpressionNode ParsePrimaryExpression()
     {
         ExpressionNode expr = ParseBasicPrimaryExpression();
-        
+        //Parseo de Acceso a Propiedad o Metodo
         while (CurrentToken != null && CurrentToken.Type == TokenType.Dot)
         {
             Match(TokenType.Dot);
-            string propertyName = Match(TokenType.Identifier).Value;
-            
+            IdentifierNode propertyName = (IdentifierNode)ParseBasicPrimaryExpression();
+
             if (CurrentToken?.Type == TokenType.OpenParen)
             {
                 Match(TokenType.OpenParen);
@@ -476,8 +648,8 @@ public class Parser
                 {
                     do
                     {
-                        arguments.Add(ParseExpression());
-                    } while (Match(TokenType.Comma) != null);
+                      arguments.Add(ParseExpression());
+                    } while(CurrentToken?.Type != TokenType.CloseParen);
                 }
                 Match(TokenType.CloseParen);
                 expr = new MethodCallNode { Target = expr, MethodName = propertyName, Arguments = arguments };
@@ -487,7 +659,30 @@ public class Parser
                 expr = new PropertyAccessNode { Target = expr, PropertyName = propertyName };
             }
         }
-        
+        //Parsear Predicados en Metodos
+        if(CurrentToken?.Type == TokenType.OpenParen)
+        {
+                IdentifierNode objectID = new IdentifierNode(); 
+                PredicateFunction predicate = new PredicateFunction();
+                Match(TokenType.OpenParen);
+                objectID.Name = Match(CurrentToken!.Type).Value;
+                predicate.target = objectID;
+                Match(TokenType.CloseParen);
+                Match(TokenType.Arrow);
+                predicate.filter = ParseExpression();
+                if (predicate.filter is not BooleanBinaryExpressionNode)
+                    throw new Exception($"Esperaba una expresion boolena y recibio {predicate.filter} en ParseSelectorNode_Predicate");
+                return predicate;
+        }
+        else if(CurrentToken?.Type == TokenType.OpenBracket)
+        {
+            CollectionIndexingNode Indexing = new CollectionIndexingNode();
+            Match(TokenType.OpenBracket);
+            Indexing.Collection = expr;
+            Indexing.Index = ParseExpression();
+            Match(TokenType.CloseBracket);
+            return Indexing;
+        }
         return expr;
     }
 
@@ -510,8 +705,24 @@ public class Parser
                 Match(CurrentToken.Type);
                 return new UnaryExpressionNode{Operator = op.Type, Operand = Id, Atend = true};
             }
+            else if(CurrentToken.Type == TokenType.SimpleConcat)
+            {
+                ConcatExpresion expresion = new ConcatExpresion();
+                expresion.left = Id;
+                Match(TokenType.SimpleConcat);
+                expresion.rigth = ParseExpression();
+                return expresion;
+            }
+            else if(CurrentToken.Type == TokenType.CompConcat)
+            {
+                ConcatExpresion expresion = new ConcatExpresion();
+                expresion.left = Id;
+                Match(TokenType.CompConcat);
+                expresion.rigth = ParseExpression();
+                expresion.IsComp = true;
+                return expresion;
+            }
             return Id;
-
         }
         else if (CurrentToken?.Type == TokenType.Number)
         {
@@ -519,7 +730,25 @@ public class Parser
         }
         else if (CurrentToken?.Type == TokenType.String)
         {
-            return new StringNode { Value = Match(TokenType.String).Value };
+            StringNode str  = new StringNode { Value = Match(TokenType.String).Value };
+            if(CurrentToken.Type == TokenType.SimpleConcat)
+            {
+                ConcatExpresion expresion = new ConcatExpresion();
+                expresion.left = str;
+                Match(TokenType.SimpleConcat);
+                expresion.rigth = ParseExpression();
+                return expresion;
+            }
+            else if(CurrentToken.Type == TokenType.CompConcat)
+            {
+                ConcatExpresion expresion = new ConcatExpresion();
+                expresion.left = str;
+                Match(TokenType.CompConcat);
+                expresion.rigth = ParseExpression();
+                expresion.IsComp = true;
+                return expresion;
+            }
+            return str;
         }
         else if (CurrentToken?.Type == TokenType.True || CurrentToken?.Type == TokenType.False)
         {
@@ -539,11 +768,16 @@ public class Parser
             DataTypeNode expresion = new DataTypeNode();
             expresion.type = Match(CurrentToken.Type).Type;
             return expresion;
+        } // Para asignacion de propiedades
+        else if(CurrentToken?.Type == TokenType.Power || CurrentToken?.Type == TokenType.Name||CurrentToken?.Type == TokenType.Type ||CurrentToken?.Type == TokenType.Range|| CurrentToken?.Type == TokenType.Faction|| CurrentToken?.Type == TokenType.Identifier)
+        {
+            IdentifierNode prop = new IdentifierNode();
+            prop.Name = Match(CurrentToken.Type).Value;
+            return prop;
         }
-        //ver si tengo q parsear expresion tipo metodo aqui
         else
         {
-            throw new Exception($"Se esperaba expresión primaria y se recibió: {CurrentToken?.Type}");
+            throw new Exception($"Se esperaba expresión primaria y se recibió: {CurrentToken?.Type} en la linea {CurrentToken?.Row}");
         }
     }
     private BlockNode ParseBlock()
@@ -558,7 +792,7 @@ public class Parser
                 block.Statements.Add(ParseStatement());
             }
             Match(TokenType.CloseBrace);
-            Match(TokenType.Comma);                                     
+            Match(TokenType.DotCom);                                     
             return block;
         }
         //Bloque de instruccion unica
@@ -566,50 +800,12 @@ public class Parser
         {
             if(CurrentToken.Type == TokenType.CloseBrace)
             {
-                Match(TokenType.CloseBrace);
+                // Match(TokenType.CloseBrace);
                 break;
             }
             block.Statements.Add(ParseStatement());
         }
-        Match(TokenType.Comma);
+        // Match(TokenType.Comma);
         return block;
     }
-
 }
-
-    // private MethodCallNode ParseMethodCall()
-    // {
-    //     MethodCallNode methodCall = new MethodCallNode();
-    //     while(GetNextToken()?.Type == TokenType.Dot || IsContextMethod())
-    //     {
-    //         if (IsContextMethod())
-    //         {
-    //             MethodNode method  = new MethodNode();
-    //             method.Signature = Match(CurrentToken.Type);
-    //             Match(TokenType.OpenParen);
-    //             if(CurrentToken.Type != TokenType.CloseParen)
-    //                 method.Params = ParseExpression();
-    //             Match(TokenType.CloseParen);
-
-    //             methodCall.context?.Add(method);
-    //         }
-    //         else
-    //             methodCall.context?.Add(ParseExpression());
-    //         Match(TokenType.Dot);
-    //     } 
-    //     while(CurrentToken?.Type != TokenType.DotCom)
-    //     {
-    //         MethodNode method = new MethodNode();
-    //         method.Signature = Match(CurrentToken.Type);
-    //         Match(TokenType.OpenParen);
-    //         if(CurrentToken.Type != TokenType.CloseParen)
-    //             method.Params = ParseExpression();
-    //         Match(TokenType.CloseParen);
-    //         methodCall.actions?.Add(method);
-    //     }
-    //     return methodCall;
-    // }
-    // private bool IsContextMethod()
-    // {
-    //     return CurrentToken?.Type == TokenType.HandOfPlayer|| CurrentToken?.Type == TokenType.DeckOfPlayer || CurrentToken?.Type == TokenType.GraveyardOfPlayer || CurrentToken?.Type == TokenType.FieldOfPlayer;
-    // }
