@@ -29,9 +29,9 @@ public static class ASTPrinter
         }
         else if (node is EffectNode effectNode)
         {
-            for (int i = 0; i < effectNode.assignments.Count; i++)
+            for (int i = 0; i < effectNode.Params.Count; i++)
             {
-                PrintAST(effectNode.assignments[i], indent, i == effectNode.assignments.Count - 1);
+                PrintAST(effectNode.Params[i], indent, i == effectNode.Params.Count - 1);
             }
             PrintAST(effectNode.Action!, indent, true);
         }
@@ -66,7 +66,7 @@ public static class ASTPrinter
         {
             PrintAST(unaryExpressionNode.Operand!, indent, true);
         }
-        else if (node is BinaryExpressionNode binaryExpressionNode)
+        else if (node is MathBinaryExpressionNode binaryExpressionNode)
         {
             PrintAST(binaryExpressionNode.Left!, indent, false);
             PrintAST(binaryExpressionNode.Right!, indent, true);
@@ -108,7 +108,7 @@ public static class ASTPrinter
             case UnaryExpressionNode unaryExpressionNode:
                 Console.WriteLine($"{indent}Operator: {unaryExpressionNode.Operator}");
                 break;
-            case BinaryExpressionNode binaryExpressionNode:
+            case MathBinaryExpressionNode binaryExpressionNode:
                 Console.WriteLine($"{indent}Operator: {binaryExpressionNode.Operator}");
                 break;
             case BooleanLiteralNode booleanLiteralNode:

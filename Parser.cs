@@ -3,92 +3,189 @@ using System.Diagnostics;
 using System.Dynamic;
 using System.Linq.Expressions;
 using System.Reflection.Emit;
+using Interpeter;
 
-public abstract class ASTNode{}
+public abstract class ASTNode{
+    public abstract void Accept(IVisitor visitor,Scope scope);
+    public int priority{get;set;}
+}
 public class ProgramNode : ASTNode
 {
-    public List<ASTNode> Statements { get; } = new List<ASTNode>();
+    public List<ASTNode> Statements { get;set; } = new List<ASTNode>();
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class EffectNode : ASTNode
 {
+    public EffectNode()
+    {
+        priority = 1;
+    } 
     public string ?Name { get; set; }
-    public List<AssignmentNode> assignments = new List<AssignmentNode>();
-
-    public ActionBlockNode ?Action { get; set; }
+    public List<AssignmentNode> Params = new List<AssignmentNode>();
+    public ActionBlockNode ?Action {get;set;}
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class CardNode : ASTNode
 {
-    public string ?Name { get; set; }
+    public CardNode()
+    {
+        priority = 0;
+    }
+    public ExpressionNode ?Name { get; set; } 
     public string ?Type { get; set; }
     public List<string> Effect  = new List<string>();
     public string ?Faction{get;set;}
     public ExpressionNode ?Power{get;set;}
     public List<string> Range = new List<string>();
     public List<ActivationBlockNode> OnActivationBlock = new List<ActivationBlockNode>();
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class ActivationBlockNode: ASTNode
 {
+    public ActivationBlockNode(ActivationBlockNode? parent = null)
+    {   
+        this.parent = parent!;
+    }
+    public ActivationBlockNode parent;
     public EffectBuilderNode ?effect {get;set;}
     public SelectorNode ?selector {get;set;} 
     public ActivationBlockNode ?postAction {get;set;}
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
+public class ErrorBlockNode : StatementNode
+{
+    public string Message { get; }
+    public List<Token> Tokens { get; }
+
+    public ErrorBlockNode(string message, List<Token> tokens)
+    {
+        Message = message;
+        Tokens = tokens;
+    }
+
+    public override string ToString()
+    {
+        return $"{Message}: {string.Join(" ", Tokens.Select(t => t.Value))}";
+    }
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
+}
+
 public class EffectBuilderNode:StatementNode
 {
     public string ?Name{get;set;}
     public List<StatementNode> assingments{get;set;} = new List<StatementNode>();
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class SelectorNode:StatementNode
 {
     public IdentifierNode ?source{get;set;}
     public ExpressionNode ?single{get;set;}
     public PredicateFunction ?predicate{get;set;} 
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class PredicateFunction: ExpressionNode
 {
     public IdentifierNode ?target {get;set;}
     public ExpressionNode ?filter {get;set;}
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class ActionBlockNode : ASTNode
 {
     public List<StatementNode> Statements { get; } = new List<StatementNode>();
     public AssignmentNode target = new AssignmentNode();
     public AssignmentNode context = new AssignmentNode();
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public abstract class StatementNode : ASTNode {}
 public class ForStatementNode : StatementNode
 {
-    public string ?Variable { get; set; }
-    public string ?Collection { get; set; }
+    public ExpressionNode ?Variable { get; set; }
+    public ExpressionNode ?Collection { get; set; }
     public BlockNode ?Body { get; set; }
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class WhileStatementNode : StatementNode
 {
     public ExpressionNode ?Condition { get; set; }
     public BlockNode ?Body { get; set; }
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class AssignmentNode : StatementNode
 {
-    public string ?Variable { get; set;}
+    public ExpressionNode ?Variable { get; set;}
     public TokenType ? type{get;set;}
     public ExpressionNode ?Value { get; set;}
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public abstract class ExpressionNode : ASTNode {}
 public class AccesExpressionNode : StatementNode
 {
     public ExpressionNode ?Expression { get; set; }
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 
 public class IdentifierNode : ExpressionNode
 {
+    public IdentifierNode(string name)
+    {
+        Name = name;
+    }
     public string ?Name {get; set;}
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class UnaryExpressionNode : ExpressionNode
 {
     public TokenType Operator {get;set;}
     public ExpressionNode ?Operand {get;set;}
     public bool Atend {get;set;}
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
-public class BinaryExpressionNode : ExpressionNode
+public class MathBinaryExpressionNode : ExpressionNode
 {
     public static Dictionary<TokenType, int> Levels = new Dictionary<TokenType, int>
     {
@@ -109,10 +206,18 @@ public class BinaryExpressionNode : ExpressionNode
     public ExpressionNode ?Left { get; set; }
     public TokenType Operator { get; set; }
     public ExpressionNode ?Right { get; set; }
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class BooleanLiteralNode : ExpressionNode
 {
     public bool Value { get; set; }
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 
 public class BooleanBinaryExpressionNode : ExpressionNode
@@ -120,33 +225,61 @@ public class BooleanBinaryExpressionNode : ExpressionNode
     public ExpressionNode ?Left { get; set; }
     public TokenType Operator { get; set; }
     public ExpressionNode ?Right { get; set; }
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class NumberNode : ExpressionNode
 {
-    public int Value { get; set; }
+    public long Value { get; set; }
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class DataTypeNode: ExpressionNode
 {
     public TokenType type {get;set;}
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class StringNode : ExpressionNode
 {
     public string ?Value { get; set; }
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 
 public class BlockNode : ASTNode
 {
     public List<StatementNode> Statements { get; } = new List<StatementNode>();
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class PropertyAccessNode : ExpressionNode
 {
-    public ExpressionNode ?Target { get; set; }
+    public ExpressionNode ?Target { get; set;}
     public IdentifierNode ?PropertyName { get; set; }
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class CollectionIndexingNode : ExpressionNode
 {
     public ExpressionNode ?Collection { get; set; }
     public ExpressionNode ?Index { get; set; }
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 
 }
 public class CompoundAssignmentNode : AssignmentNode
@@ -154,18 +287,30 @@ public class CompoundAssignmentNode : AssignmentNode
     public ExpressionNode ?Target { get; set; }
     public TokenType Operator { get; set; }
     public ExpressionNode ?value { get; set; }
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class MethodCallNode : ExpressionNode
 {
-    public ExpressionNode ?Target { get; set; }
-    public IdentifierNode ?MethodName { get; set; }
-    public List<ExpressionNode> ?Arguments { get; set; }
+    public ExpressionNode ?Target {get;set;}
+    public IdentifierNode ?MethodName {get;set;}
+    public List<ExpressionNode> ?Arguments {get;set;}
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class ConcatExpresion: ExpressionNode
 {
-    public ExpressionNode ?rigth{get;set;}
+    public ExpressionNode ?right{get;set;}
     public ExpressionNode ?left {get;set;}
     public bool IsComp{get;set;}
+    public override void Accept(IVisitor visitor,Scope scope)
+    {
+        visitor.Visit(this,scope);
+    }
 }
 public class Parser
 {
@@ -215,6 +360,7 @@ public class Parser
                 throw new Exception($"Recibio {CurrentToken.Type} pero esperaba effect o card en la linea {CurrentToken.Row}");
             }
         }
+        program.Statements = program.Statements.OrderByDescending((x)=>x.priority).ToList();
         return program;
     }
     private EffectNode ParseEffect()
@@ -241,7 +387,7 @@ public class Parser
                     Match(TokenType.OpenBrace);
                     while (CurrentToken != null && CurrentToken.Type != TokenType.CloseBrace)
                     {
-                       effect.assignments.Add((AssignmentNode)ParseAssignment());
+                       effect.Params.Add((AssignmentNode)ParseAssignment());
                     }
                     Match(TokenType.CloseBrace);
                     Match(TokenType.Comma);
@@ -273,7 +419,7 @@ public class Parser
                 case TokenType.Name:
                     Match(TokenType.Name);
                     Match(TokenType.Colon);
-                    card.Name = Match(TokenType.String).Value;
+                    card.Name = ParseExpression();
                     Match(TokenType.Comma);
                     break;
 
@@ -334,9 +480,9 @@ public class Parser
         Match(TokenType.CloseBrace);
         return card;
     }
-    private ActivationBlockNode ParseActivationBlock()
+    private ActivationBlockNode ParseActivationBlock(ActivationBlockNode? parent = null)
     {
-        ActivationBlockNode actionBlock = new ActivationBlockNode();
+        ActivationBlockNode actionBlock = new ActivationBlockNode(parent);
         Match(TokenType.OpenBrace);
         while(CurrentToken?.Type != TokenType.CloseBrace)
         {
@@ -352,7 +498,7 @@ public class Parser
             {
                 Match(TokenType.PostAction);
                 Match(TokenType.Colon);
-                actionBlock.postAction = ParseActivationBlock();
+                actionBlock.postAction = ParseActivationBlock(actionBlock);
             }
             else
                 throw new Exception($"Esperaba EffectKW,Selector o PostAction pero recibio {CurrentToken?.Value} en PActivationBlockNode");
@@ -385,7 +531,6 @@ public class Parser
             else
             {
                 effectBuild.assingments.Add(ParseAssignment());
-                //No me acuerdo si aqui ya llega con la coma parseada
             }
         }
         Match(TokenType.CloseBrace);
@@ -402,10 +547,9 @@ public class Parser
         {
             if(CurrentToken?.Type == TokenType.Source)
             {
-                IdentifierNode source = new IdentifierNode();
                 Match(TokenType.Source);
                 Match(TokenType.Colon);
-                source.Name = Match(CurrentToken.Type).Value;
+                IdentifierNode source = new IdentifierNode(Match(CurrentToken.Type).Value);
                 selector.source = source;
                 Match(TokenType.Comma);
             }
@@ -420,12 +564,11 @@ public class Parser
             }
             else if(CurrentToken?.Type == TokenType.Predicate)
             {
-                IdentifierNode cardID = new IdentifierNode(); 
                 PredicateFunction predicate = new PredicateFunction();
                 Match(TokenType.Predicate);
                 Match(TokenType.Colon);
                 Match(TokenType.OpenParen);
-                cardID.Name = Match(CurrentToken!.Type).Value;
+                IdentifierNode cardID = new IdentifierNode(Match(CurrentToken!.Type).Value); 
                 predicate.target = cardID;
                 Match(TokenType.CloseParen);
                 Match(TokenType.Arrow);
@@ -442,9 +585,11 @@ public class Parser
     {
         ActionBlockNode actionBlock = new ActionBlockNode();
         Match(TokenType.OpenParen);
-        actionBlock.target.Variable = Match(TokenType.Identifier).Value;
+        IdentifierNode target = new IdentifierNode(Match(TokenType.Identifier).Value);
+        actionBlock.target.Variable = target;
         Match(TokenType.Comma);
-        actionBlock.context.Variable = Match(TokenType.Identifier).Value;
+        IdentifierNode context = new IdentifierNode(Match(TokenType.Identifier).Value);
+        actionBlock.context.Variable = context;
         Match(TokenType.CloseParen);
         Match(TokenType.Arrow);
         
@@ -507,9 +652,9 @@ public class Parser
         ForStatementNode forStatement = new ForStatementNode();
         Match(TokenType.For);
         Match(TokenType.OpenParen);
-        forStatement.Variable = Match(TokenType.Identifier).Value;
+        forStatement.Variable = ParseExpression();
         Match(TokenType.In);
-        forStatement.Collection = Match(TokenType.Identifier).Value;
+        forStatement.Collection = ParseExpression();
         Match(TokenType.CloseParen);
         forStatement.Body = ParseBlock();
         return forStatement;
@@ -571,11 +716,11 @@ public class Parser
     {
         ExpressionNode left = ParsePrimaryExpression();
 
-        while (CurrentToken != null && IsOperator(CurrentToken.Type) && BinaryExpressionNode.Levels[CurrentToken.Type] > precedence)
+        while (CurrentToken != null && IsOperator(CurrentToken.Type) && MathBinaryExpressionNode.Levels[CurrentToken.Type] > precedence)
         {
             TokenType op = CurrentToken.Type;
             Match(op);
-            ExpressionNode right = ParseExpression(BinaryExpressionNode.Levels[op]);
+            ExpressionNode right = ParseExpression(MathBinaryExpressionNode.Levels[op]);
 
              if (IsBooleanOperator(op))
             {
@@ -583,7 +728,7 @@ public class Parser
             }
             else
             {
-                left = new BinaryExpressionNode { Left = left, Operator = op, Right = right };
+                left = new MathBinaryExpressionNode { Left = left, Operator = op, Right = right };
             }
         }
         return left;
@@ -606,15 +751,16 @@ public class Parser
         }
     }
 
-    private string GetVariableFromExpression(ExpressionNode expr)
+    private ExpressionNode GetVariableFromExpression(ExpressionNode expr)
     {
         if (expr is IdentifierNode idNode)
         {
-            return idNode.Name!;
+            return idNode!;
         }
         else if (expr is PropertyAccessNode propNode)
         {
-            return $"{GetVariableFromExpression(propNode.Target!)}.{propNode.PropertyName}";
+             
+            return propNode;
         }
         else
         {
@@ -629,7 +775,7 @@ public class Parser
     }
     private bool IsOperator(TokenType type)
     {
-        return BinaryExpressionNode.Levels.ContainsKey(type);
+        return MathBinaryExpressionNode.Levels.ContainsKey(type);
     }
     private ExpressionNode ParsePrimaryExpression()
     {
@@ -662,10 +808,9 @@ public class Parser
         //Parsear Predicados en Metodos
         if(CurrentToken?.Type == TokenType.OpenParen)
         {
-                IdentifierNode objectID = new IdentifierNode(); 
                 PredicateFunction predicate = new PredicateFunction();
                 Match(TokenType.OpenParen);
-                objectID.Name = Match(CurrentToken!.Type).Value;
+                IdentifierNode objectID = new IdentifierNode(Match(CurrentToken!.Type).Value); 
                 predicate.target = objectID;
                 Match(TokenType.CloseParen);
                 Match(TokenType.Arrow);
@@ -698,7 +843,7 @@ public class Parser
         if (CurrentToken?.Type == TokenType.Identifier)
         {
             string ID = Match(TokenType.Identifier).Value;
-            IdentifierNode Id = new IdentifierNode { Name = ID} ;
+            IdentifierNode Id = new IdentifierNode(ID) ;
             if (CurrentToken.Type == TokenType.MinusMinus || CurrentToken.Type == TokenType.PlusPlus)
             {
                 Token op = CurrentToken;
@@ -710,7 +855,7 @@ public class Parser
                 ConcatExpresion expresion = new ConcatExpresion();
                 expresion.left = Id;
                 Match(TokenType.SimpleConcat);
-                expresion.rigth = ParseExpression();
+                expresion.right = ParseExpression();
                 return expresion;
             }
             else if(CurrentToken.Type == TokenType.CompConcat)
@@ -718,7 +863,7 @@ public class Parser
                 ConcatExpresion expresion = new ConcatExpresion();
                 expresion.left = Id;
                 Match(TokenType.CompConcat);
-                expresion.rigth = ParseExpression();
+                expresion.right = ParseExpression();
                 expresion.IsComp = true;
                 return expresion;
             }
@@ -736,7 +881,7 @@ public class Parser
                 ConcatExpresion expresion = new ConcatExpresion();
                 expresion.left = str;
                 Match(TokenType.SimpleConcat);
-                expresion.rigth = ParseExpression();
+                expresion.right = ParseExpression();
                 return expresion;
             }
             else if(CurrentToken.Type == TokenType.CompConcat)
@@ -744,7 +889,7 @@ public class Parser
                 ConcatExpresion expresion = new ConcatExpresion();
                 expresion.left = str;
                 Match(TokenType.CompConcat);
-                expresion.rigth = ParseExpression();
+                expresion.right = ParseExpression();
                 expresion.IsComp = true;
                 return expresion;
             }
@@ -771,8 +916,7 @@ public class Parser
         } // Para asignacion de propiedades
         else if(CurrentToken?.Type == TokenType.Power || CurrentToken?.Type == TokenType.Name||CurrentToken?.Type == TokenType.Type ||CurrentToken?.Type == TokenType.Range|| CurrentToken?.Type == TokenType.Faction|| CurrentToken?.Type == TokenType.Identifier)
         {
-            IdentifierNode prop = new IdentifierNode();
-            prop.Name = Match(CurrentToken.Type).Value;
+            IdentifierNode prop = new IdentifierNode(Match(CurrentToken.Type).Value);
             return prop;
         }
         else
